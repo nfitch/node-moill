@@ -1,6 +1,7 @@
 Things to do, in no particular order:
 
 ### Packaging ###
+- Add a Makefile
 - Make npm test actually run all the tests.
 - Make tests quit on first error.
 
