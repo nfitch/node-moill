@@ -1,0 +1,243 @@
+<html>
+<!--
+ This is a simple UI that builds on the MoILL server to manage items in lists.
+
+ Credits:
+ loading.gif: http://www.nirmaltv.com/2009/04/21/create-free-animated-loading-gif-images/
+-->
+<head><title>MoILL</title>
+<script type="text/javascript" src="http://code.jquery.com/jquery-1.7.2.min.js"></script>
+<script type="text/javascript" src="/js/jquery.autosize-min.js"></script>
+<script type="text/javascript">
+//Constants
+var DEFAULT_LIST = "Unsorted";
+var KEY_WORKING = "working";
+var KEY_SAVED = "saved";
+var KEY_UNSAVED = "unsaved";
+var MOILL = "/moill";
+
+//Global Vars
+var currentList = DEFAULT_LIST;
+var currentSelection = null;
+
+//Helper Functions
+function ge(name) {
+  return document.getElementById(name);
+}
+
+function getNewId() {
+  return (new Date()).getTime() + Math.floor(Math.random()*1000);
+}
+
+//Populate the left "Lists" pane.
+function populateLists(lists) {
+  var html = "<table>";
+  for(i = 0; i < lists.length; ++i) {
+    html += "<tr><td>" + lists[i] + "</td></tr>";
+  }
+  html += "</table>";
+  ge("Lists").innerHTML = html;
+  populateList(DEFAULT_LIST);
+}
+
+//Populate the right "List" pane.
+function populateList(name) {
+  $.get(MOILL, {Action: "List", List: name}, function(data) {
+    if(data.length == 0) {
+      addAddField(false);
+    }
+    else {
+      //Set up all the keys
+      var html = "";
+      for(var i = 0; i < data.length; ++i) {
+        html += getFieldHtml(data[i].Key);
+      }
+      ge("List").innerHTML = html;
+      //Set up all the values
+      for(var i = 0; i < data.length; ++i) {
+        setKeyView(data[i].Key, data[i].Value, KEY_SAVED, true);
+      }
+      addAddField(true);
+    }
+  });
+}
+
+//Adds the text field at the top for entering new items.
+function addAddField(includeCurrentInnerHtml) {
+  var key = getNewId();
+  var currentHtml = ge("List").innerHTML;
+  ge("List").innerHTML = getFieldHtml(key);
+  if(includeCurrentInnerHtml) {
+    ge("List").innerHTML += currentHtml;
+  }
+  setKeyView(key, "<textarea id='" + key + 
+                  "-text' rows=1 cols=1 style='width:100%'></textarea>",
+             KEY_UNSAVED, false);
+
+  //Now make the textarea autoexpand.
+  $('textarea').autosize();
+}
+
+//Add Field is a text area with status on the left.
+function getFieldHtml(id) {
+  var html = "<div id='" + id + "-div'><table width=100% border=0><tr>";
+  html += "<td><div id='" + id + "-body'></div></td>";
+  html += "<td width='10%' align='center'><div id='" + id + "-status'></div></td>";
+  html += "</tr></table></div>";
+  return html;
+}
+
+function select(key) {
+  unselectCurrentSelection();
+  $("#" + key + "-body").css('border-style', 'solid');
+  $("#" + key + "-body").css('border-color', 'red');
+  $("#" + key + "-body").css('border-width', '1px');
+  currentSelection = key;
+}
+
+function unselectCurrentSelection() {
+  if (currentSelection == null) {
+    return;
+  }
+  $("#" + currentSelection + "-body").css('border-style', 'solid');
+  $("#" + currentSelection + "-body").css('border-color', 'white');
+  $("#" + currentSelection + "-body").css('border-width', '0px');
+  currentSelection = null;
+}
+
+//Updates an item in the UI.
+function setKeyView(key, value, keyStatus, allowSelect) {
+  //Body field
+  var divBody = ge(key + "-body");
+  divBody.innerHTML = value;
+  if (allowSelect) {
+    $("#" + key + "-body").live('click', function(e) {
+      select(key);
+    });
+  }
+
+  //Status field
+  setKeyStatus(key, keyStatus);
+}
+
+function setKeyStatus(key, keyStatus) {
+  var divStatus = ge(key + "-status");
+  //if (!divStatus) { return; }
+  if (keyStatus == KEY_WORKING) {
+    divStatus.innerHTML = "<image src='images/loading.gif' width='20' height='20'>";
+  }
+  else if (keyStatus == KEY_SAVED) {
+    divStatus.innerHTML = "<font color='green'>saved</font>";
+  }
+  else if (keyStatus == KEY_UNSAVED) {
+    divStatus.innerHTML = "<font color='red'>unsaved</font>";
+  }
+}
+
+//Will save the key and value after the afterKey.  If the afterKey is
+// null it will shift it on.
+function initSave(key, value, afterKey) {
+   //Set it spinning...
+   setKeyStatus(key, KEY_WORKING);
+   var queryParams = {Action: "Add", List: currentList, Key: key, Value: value};
+   if (afterKey != null) {
+      queryParams['NextTo'] = afterKey;
+      queryParams['Position'] = 'After';
+   }
+   $.get(MOILL, queryParams, function(data) {
+     setKeyView(key, value, KEY_SAVED, true);
+     addAddField(true);
+   });
+}
+
+//Yuck... this is going to break horribly... it will probably need to
+// be rewritten when move is implemented.
+function findKeyBefore(key, parent) {
+  //No elements in the list yet...
+  if (parent.children.length = 1) {
+     return null;
+  }
+  else {
+     var prev = null
+     for(var child in parent.children) {
+        var id = child.id.split("-")[0];
+        if (id == key) {
+           return prev;
+        }
+     }
+     return prev;
+  }
+}
+
+//Causes a key to be deleted.
+function initDelete(key) {
+   setKeyStatus(key, KEY_WORKING);
+   $.get(MOILL, {Action: "Delete", List: currentList, Key: key}, function(data) {
+     setKeyStatus(key, KEY_SAVED)
+     //Remove from the UI...
+     $("#" + key + "-div").remove();
+     //If this was the last one, go back to a single box...
+     if(ge("List").children.length == 0) {
+       populateList(currentList);
+     }
+   });
+}
+
+//Keyboard handlers
+//See: http://www.cambiaresearch.com/articles/15/javascript-char-codes-key-codes
+$(document).keyup(function(e) {
+  if (e.shiftKey && e.keyCode == 13) { // shift + enter
+    var activeElement = document.activeElement;
+    if (activeElement instanceof HTMLTextAreaElement) {
+      var key = activeElement.id.split('-')[0];
+      var value = $.trim(activeElement.value);
+      var parent = ge(key + "-div").parentElement;
+      initSave(key, value, findKeyBefore(key, parent));
+    }
+  }
+  else if (e.keyCode == 27) { // esc
+    unselectCurrentSelection();
+  }
+  else if (e.shiftKey && e.keyCode == 46) { // shift + delete
+    if (currentSelection != null) {
+      initDelete(currentSelection);
+    }
+  }
+});
+
+//Onload...
+$(document).ready(function(){
+  $.get(MOILL, {Action: "Lists"}, function(data) {
+    if(data.length == 0) {
+      $.get(MOILL, {Action: "CreateList", List: DEFAULT_LIST}, function(data) {
+        populateLists([DEFAULT_LIST]);
+      });
+    }
+    else {
+      populateLists(data);
+    }
+  });
+});
+</script>
+</head>
+<body>
+MoILL: Map of Indexed Linked Lists<br>
+<font size='1'>Don't get it?  Just use it.  Shift + Enter to save.  Click, then Shift + Delete to delete.  Escape to unselect.</font><br>
+<hr>
+<table border='1' height='100%' width='100%'>
+  <tr>
+    <td valign='top' width='10%'>
+      <div id='Lists'>
+        <div align='center'>
+          <br><image src='images/loading.gif' width='20' height='20'></div>
+        </div>
+    </td>
+    <td valign='top'>
+      <div id='List'>
+        <div align='center'>
+           <br><image src='images/loading.gif' width='100' height='100'></div>
+        </div>
+    </td>
+  </tr>
+</body>
+</html>

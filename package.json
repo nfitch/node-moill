@@ -1,0 +1,19 @@
+{
+  "name": "moill",
+  "version": "0.0.1",
+  "description": "Moill: Map of Indexed Linked Lists.",
+  "author": "Nate Fitch <nfitch@nfprod.com>",
+  "engine": [ "node >=0.8.1" ],
+  "private": true,
+  "keywords": [],
+  "devDependencies": {
+    "node-static": "latest",
+    "request": "latest",
+    "step": "latest"
+  },
+  "scripts": {
+    "test": "node test/test-indexed-linked-list.js"
+  },
+  "files": ["lib","test","static","package.json","README.md","TODO"],
+  "main": "lib/moill"
+}

@@ -1,0 +1,19 @@
+Things to do, in no particular order:
+
+### Packaging ###
+- Make npm test actually run all the tests.
+- Make tests quit on first error.
+
+### Moill Server ###
+- Use a logger rather than the console.  
+- Add more logging.
+- Use a db rather than an in-memory ILL structure.
+- Make moill-actions throw errors internally rather than checking bools everywhere.
+- Change all validations in test-moill-server.js to compare objects rather than strings.
+
+### Moill UI ###
+- Error handling when .get fails.
+- Hover to help rather than having the instructions on the front page.
+- Implement Multiple Lists
+- Drag and drop within a list.
+- Drag and drop between lists.
